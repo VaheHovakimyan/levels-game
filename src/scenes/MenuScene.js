@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { LEVELS, TOTAL_LEVELS } from '../data/levels';
-import { clampStageIndex } from '../data/roadmap';
+import { clampStageIndex, LEVELS_PER_WORLD, ROADMAP_WORLDS } from '../data/roadmap';
 import { SCENE_KEYS } from '../utils/constants';
 import { resetProgress, saveSelectedSkin } from '../utils/storage';
 import { SoundManager } from '../systems/SoundManager';
@@ -12,6 +12,8 @@ const ROADMAP_TEXTURE_SCALE = 3;
 const ROADMAP_EARTH_SIZE = 150;
 const ROADMAP_MOON_SIZE = 108;
 const ROADMAP_MOON_DISPLAY_SIZE = 86;
+const ROADMAP_MARS_SIZE = 130;
+const ROADMAP_VOID_SIZE = 126;
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -40,6 +42,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    this.isTransitioning = false;
     this.soundManager = new SoundManager(this);
     this.cameras.main.setZoom(1);
 
@@ -312,6 +315,7 @@ export class MenuScene extends Phaser.Scene {
     this.refreshSkinUi();
     this.refreshMeta();
     this.buildSkinSelect();
+    this.toggleSkinSelect(false);
     this.showToast(`Suit: ${getSkinLabel(safe)}`);
   }
 
@@ -339,16 +343,39 @@ export class MenuScene extends Phaser.Scene {
     const centerX = this.scale.width / 2;
     const centerY = this.scale.height / 2;
     const selectedSkin = sanitizeSkinKey(this.registry.get('selectedSkin') ?? PLAYER_SKINS[0].key);
-    const panelWidth = Math.min(this.scale.width - 60, 940);
-    const panelHeight = Math.min(this.scale.height - 56, 520);
-    const compact = panelWidth < 820;
+    const viewportWidth = this.scale.width;
+    const viewportHeight = this.scale.height;
+    const panelMarginX = viewportWidth < 760 ? 20 : 32;
+    const panelMarginY = viewportHeight < 640 ? 16 : 24;
+    const panelWidth = Math.min(viewportWidth - panelMarginX * 2, 1020);
+    const compact = panelWidth < 860;
     const columns = compact ? 1 : 2;
-    const cardWidth = compact ? Math.min(panelWidth - 84, 360) : 370;
-    const cardHeight = compact ? 114 : 142;
-    const gapX = compact ? 0 : 60;
-    const gapY = compact ? 16 : 42;
     const rows = Math.ceil(PLAYER_SKINS.length / columns);
-    const gridTop = centerY - (rows * cardHeight + (rows - 1) * gapY) / 2 + 26;
+    const contentPaddingX = compact ? 24 : 34;
+    const gapX = compact ? 0 : 24;
+    const maxCardWidth = compact ? 460 : 430;
+    const minCardWidth = compact ? 250 : 320;
+    const computedCardWidth = Math.floor((panelWidth - contentPaddingX * 2 - gapX * (columns - 1)) / columns);
+    const cardWidth = Phaser.Math.Clamp(computedCardWidth, minCardWidth, maxCardWidth);
+
+    let headerHeight = compact ? 96 : 108;
+    let cardHeight = compact ? 108 : 126;
+    let gapY = compact ? 14 : 20;
+    const footerPadding = 28;
+    const maxPanelHeight = viewportHeight - panelMarginY * 2;
+    let panelHeight = headerHeight + rows * cardHeight + (rows - 1) * gapY + footerPadding;
+
+    while (panelHeight > maxPanelHeight && cardHeight > 92) {
+      cardHeight -= 4;
+      gapY = Math.max(10, gapY - 1);
+      headerHeight = Math.max(86, headerHeight - 1);
+      panelHeight = headerHeight + rows * cardHeight + (rows - 1) * gapY + footerPadding;
+    }
+
+    panelHeight = Math.min(panelHeight, maxPanelHeight);
+    const panelTop = centerY - panelHeight / 2;
+    const titleY = panelTop + 54;
+    const gridTop = panelTop + headerHeight + cardHeight / 2;
 
     const dimmer = this.add.rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x000000, 0.52).setInteractive();
     const panel = createPanel(this, {
@@ -359,21 +386,19 @@ export class MenuScene extends Phaser.Scene {
     }).container;
 
     const title = this.add
-      .text(centerX, centerY - panelHeight / 2 + 40, 'Select Suit', {
+      .text(centerX, titleY, 'Select Suit', {
         fontFamily: UI_THEME.fontFamily,
-        fontSize: compact ? '24px' : '30px',
+        fontSize: compact ? '24px' : '28px',
         color: UI_THEME.colors.textPrimary,
       })
       .setOrigin(0.5);
 
     const closeButton = createButton(this, {
-      x: centerX + panelWidth / 2 - 58,
-      y: centerY - panelHeight / 2 + 40,
-      width: compact ? 84 : 92,
-      height: compact ? 34 : 38,
-      label: 'Close',
+      x: centerX + panelWidth / 2 - 46,
+      y: titleY,
+      width: 46,
+      height: 34,
       icon: 'close',
-      fontSize: compact ? '14px' : '16px',
       onClick: () => this.toggleSkinSelect(false),
     }).container;
 
@@ -394,21 +419,21 @@ export class MenuScene extends Phaser.Scene {
 
       const preview = this.add
         .sprite(x - cardWidth * 0.34, y + 4, `player-${skin.key}-idle-0`)
-        .setScale(compact ? 1.2 : 1.35);
+        .setScale(compact ? 1.26 : 1.38);
       preview.play(getPlayerAnimKey(skin.key, 'run'));
 
       const label = this.add
-        .text(x + cardWidth * 0.16, y - 14, skin.label, {
+        .text(x + cardWidth * 0.16, y - Math.round(cardHeight * 0.1), skin.label, {
           fontFamily: UI_THEME.fontFamily,
-          fontSize: compact ? '18px' : '20px',
+          fontSize: compact ? '20px' : '22px',
           color: selected ? '#ffffff' : UI_THEME.colors.textSecondary,
         })
         .setOrigin(0.5);
 
       const sub = this.add
-        .text(x + cardWidth * 0.16, y + 14, selected ? 'EQUIPPED' : 'Tap to equip', {
+        .text(x + cardWidth * 0.16, y + Math.round(cardHeight * 0.12), selected ? 'EQUIPPED' : 'Tap to equip', {
           fontFamily: UI_THEME.fontFamily,
-          fontSize: compact ? '14px' : '15px',
+          fontSize: compact ? '14px' : '16px',
           color: selected ? '#cbf1ff' : UI_THEME.colors.textMuted,
         })
         .setOrigin(0.5);
@@ -750,6 +775,105 @@ export class MenuScene extends Phaser.Scene {
       ctx.restore();
       tex.refresh();
     }
+
+    if (!this.textures.exists('roadmap-mars')) {
+      const tex = this.textures.createCanvas(
+        'roadmap-mars',
+        ROADMAP_MARS_SIZE * ROADMAP_TEXTURE_SCALE,
+        ROADMAP_MARS_SIZE * ROADMAP_TEXTURE_SCALE,
+      );
+      const ctx = tex.context;
+      const r = ROADMAP_MARS_SIZE * 0.5;
+      const cX = ROADMAP_MARS_SIZE * 0.5;
+      const cY = ROADMAP_MARS_SIZE * 0.5;
+
+      ctx.save();
+      ctx.scale(ROADMAP_TEXTURE_SCALE, ROADMAP_TEXTURE_SCALE);
+
+      const dust = ctx.createRadialGradient(cX - 10, cY - 14, 8, cX, cY, r);
+      dust.addColorStop(0, '#ffcf98');
+      dust.addColorStop(0.55, '#d77943');
+      dust.addColorStop(1, '#7f351e');
+      ctx.fillStyle = dust;
+      ctx.beginPath();
+      ctx.arc(cX, cY, r - 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(132, 56, 32, 0.48)';
+      [
+        { x: -18, y: -12, rx: 18, ry: 9, angle: -0.2 },
+        { x: 20, y: 8, rx: 16, ry: 8, angle: 0.25 },
+        { x: -4, y: 20, rx: 12, ry: 6, angle: 0.15 },
+      ].forEach((patch) => {
+        ctx.beginPath();
+        ctx.ellipse(cX + patch.x, cY + patch.y, patch.rx, patch.ry, patch.angle, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.fillStyle = 'rgba(255, 243, 220, 0.65)';
+      ctx.beginPath();
+      ctx.ellipse(cX, cY - 34, 18, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cX, cY + 34, 15, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 214, 188, 0.78)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cX, cY, r - 4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.restore();
+      tex.refresh();
+    }
+
+    if (!this.textures.exists('roadmap-void')) {
+      const tex = this.textures.createCanvas(
+        'roadmap-void',
+        ROADMAP_VOID_SIZE * ROADMAP_TEXTURE_SCALE,
+        ROADMAP_VOID_SIZE * ROADMAP_TEXTURE_SCALE,
+      );
+      const ctx = tex.context;
+      const r = ROADMAP_VOID_SIZE * 0.5;
+      const cX = ROADMAP_VOID_SIZE * 0.5;
+      const cY = ROADMAP_VOID_SIZE * 0.5;
+
+      ctx.save();
+      ctx.scale(ROADMAP_TEXTURE_SCALE, ROADMAP_TEXTURE_SCALE);
+
+      const core = ctx.createRadialGradient(cX - 8, cY - 10, 8, cX, cY, r);
+      core.addColorStop(0, '#c5b6ff');
+      core.addColorStop(0.5, '#704ed4');
+      core.addColorStop(1, '#24134f');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(cX, cY, r - 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      for (let i = 0; i < 4; i += 1) {
+        const t = i / 3;
+        ctx.strokeStyle = `rgba(164, 208, 255, ${(0.45 - t * 0.1).toFixed(3)})`;
+        ctx.lineWidth = 2 - t * 0.35;
+        ctx.beginPath();
+        ctx.ellipse(cX, cY, 16 + i * 8, 8 + i * 5, -0.32 + i * 0.08, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(156, 245, 255, 0.5)';
+      ctx.beginPath();
+      ctx.ellipse(cX - 12, cY - 16, 10, 4, -0.24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(220, 210, 255, 0.82)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cX, cY, r - 4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.restore();
+      tex.refresh();
+    }
   }
 
   buildLevelSelect() {
@@ -759,9 +883,11 @@ export class MenuScene extends Phaser.Scene {
     const centerY = this.scale.height / 2;
     const unlockedStage = clampStageIndex(this.registry.get('unlockedLevel') ?? 0);
     const currentStage = clampStageIndex(this.registry.get('currentLevel') ?? 0);
-    const panelWidth = Math.min(this.scale.width - 52, 1120);
-    const panelHeight = Math.min(this.scale.height - 56, 620);
-    const routeScale = panelWidth / 1360;
+    const panelWidth = Math.min(this.scale.width - 52, 1060);
+    const panelHeight = Math.min(this.scale.height - 56, 610);
+    const compact = panelWidth < 860;
+    const tiny = panelWidth < 700;
+    const routeScale = Math.min(panelWidth / 1220, panelHeight / 720) * 0.9;
 
     const dimmer = this.add.rectangle(centerX, centerY, this.scale.width, this.scale.height, 0x000000, 0.52).setInteractive();
     const panel = createPanel(this, {
@@ -772,21 +898,19 @@ export class MenuScene extends Phaser.Scene {
     }).container;
 
     const title = this.add
-      .text(centerX, centerY - panelHeight / 2 + 38, 'Mission Roadmap', {
+      .text(centerX, centerY - panelHeight / 2 + 44, 'Mission Roadmap', {
         fontFamily: UI_THEME.fontFamily,
-        fontSize: '30px',
+        fontSize: tiny ? '23px' : '29px',
         color: UI_THEME.colors.textPrimary,
       })
       .setOrigin(0.5);
 
     const closeButton = createButton(this, {
-      x: centerX + panelWidth / 2 - 54,
-      y: centerY - panelHeight / 2 + 38,
-      width: 88,
-      height: 32,
-      label: 'Close',
+      x: centerX + panelWidth / 2 - 46,
+      y: centerY - panelHeight / 2 + 44,
+      width: 46,
+      height: 34,
       icon: 'close',
-      fontSize: '14px',
       onClick: () => this.toggleLevelSelect(false),
     }).container;
 
@@ -794,81 +918,211 @@ export class MenuScene extends Phaser.Scene {
 
     this.ensureRoadmapPlanetTextures();
 
-    const earthCenter = { x: centerX - 372 * routeScale, y: centerY + 44 * routeScale + 12 };
-    const moonCenter = { x: centerX + 374 * routeScale, y: centerY + 4 * routeScale + 12 };
-
-    const earth = this.add
-      .image(earthCenter.x, earthCenter.y, 'roadmap-earth')
-      .setDepth(179)
-      .setDisplaySize(ROADMAP_EARTH_SIZE, ROADMAP_EARTH_SIZE);
-    const moon = this.add
-      .image(moonCenter.x, moonCenter.y, 'roadmap-moon')
-      .setDepth(179)
-      .setDisplaySize(ROADMAP_MOON_DISPLAY_SIZE, ROADMAP_MOON_DISPLAY_SIZE);
-    this.levelSelectContainer.add([earth, moon]);
-
-    const earthOffsets = [
-      { x: -162 * routeScale, y: -156 * routeScale },
-      { x: -58 * routeScale, y: -182 * routeScale },
-      { x: 52 * routeScale, y: -168 * routeScale },
-      { x: 136 * routeScale, y: -112 * routeScale },
-      { x: 178 * routeScale, y: -24 * routeScale },
-    ];
-    const moonOffsets = [
-      { x: -168 * routeScale, y: 44 * routeScale },
-      { x: -100 * routeScale, y: 124 * routeScale },
-      { x: -4 * routeScale, y: 162 * routeScale },
-      { x: 98 * routeScale, y: 138 * routeScale },
-      { x: 174 * routeScale, y: 60 * routeScale },
+    const orbitWidth = panelWidth * (tiny ? 0.24 : 0.27);
+    const orbitHeight = panelHeight * (tiny ? 0.2 : 0.21);
+    const clusterSpread = tiny ? 0.72 : 0.82;
+    const worldCenters = [
+      { x: centerX - orbitWidth, y: centerY - orbitHeight + 12 * routeScale },
+      { x: centerX + orbitWidth, y: centerY - orbitHeight - 8 * routeScale },
+      { x: centerX - orbitWidth * 0.92, y: centerY + orbitHeight + 14 * routeScale },
+      { x: centerX + orbitWidth * 0.94, y: centerY + orbitHeight + 4 * routeScale },
     ];
 
-    const mapPoints = LEVELS.map((_level, levelIndex) => {
-      if (levelIndex < 5) {
-        const offset = earthOffsets[levelIndex];
-        return { x: earthCenter.x + offset.x, y: earthCenter.y + offset.y };
+    // Each planet starts from a different orbital angle to avoid repeating the same node direction.
+    const worldOrbitConfigs = [
+      { startDeg: 190, stepDeg: 26 }, // Earth starts from left.
+      { startDeg: -38, stepDeg: 27 }, // Moon starts from top-right.
+      { startDeg: 132, stepDeg: -25 }, // Mars starts upper-left and rotates opposite direction.
+      { startDeg: 34, stepDeg: 28 }, // Singularity starts right/top-right.
+    ];
+    const orbitSpacingMultiplier = tiny ? 1.14 : 1.2;
+
+    const planetVisuals = {
+      earth: { key: 'roadmap-earth', size: ROADMAP_EARTH_SIZE * 0.58 * routeScale },
+      moon: { key: 'roadmap-moon', size: ROADMAP_MOON_DISPLAY_SIZE * 0.92 * routeScale },
+      mars: { key: 'roadmap-mars', size: ROADMAP_MARS_SIZE * 0.5 * routeScale },
+      singularity: { key: 'roadmap-void', size: ROADMAP_VOID_SIZE * 0.52 * routeScale },
+    };
+
+    const mapPoints = new Array(LEVELS.length);
+
+    ROADMAP_WORLDS.forEach((world, worldIndex) => {
+      const center = worldCenters[worldIndex] || { x: centerX, y: centerY };
+      const visual = planetVisuals[world.key] || planetVisuals.singularity;
+      const orbitConfig = worldOrbitConfigs[worldIndex % worldOrbitConfigs.length];
+      const orbitRadiusX = (visual.size * 0.58 + (tiny ? 44 : 54) * routeScale) * clusterSpread * orbitSpacingMultiplier;
+      const orbitRadiusY = (visual.size * 0.5 + (tiny ? 34 : 46) * routeScale) * clusterSpread * orbitSpacingMultiplier;
+
+      const aura = this.add
+        .ellipse(center.x, center.y, Math.max(100, visual.size + 78), Math.max(70, visual.size + 42), world.color, 0.14)
+        .setDepth(177);
+      const planet = this.add.image(center.x, center.y, visual.key).setDepth(178).setDisplaySize(visual.size, visual.size);
+      const worldLabel = this.add
+        .text(center.x, center.y + visual.size * 0.65 + (tiny ? 4 : 8), world.name, {
+          fontFamily: UI_THEME.fontFamily,
+          fontSize: tiny ? '11px' : '13px',
+          color: '#d3eaff',
+        })
+        .setOrigin(0.5)
+        .setDepth(179);
+
+      this.levelSelectContainer.add([aura, planet, worldLabel]);
+
+      const startIndex = Phaser.Math.Clamp(world.startLevel - 1, 0, LEVELS.length - 1);
+      const endIndex = Phaser.Math.Clamp(startIndex + world.count - 1, 0, LEVELS.length - 1);
+      for (let stage = startIndex; stage <= endIndex; stage += 1) {
+        const localIndex = stage - startIndex;
+        const angle = Phaser.Math.DegToRad(orbitConfig.startDeg + localIndex * orbitConfig.stepDeg);
+        const wobble = Math.sin(localIndex * 1.26 + worldIndex * 0.82) * 9 * routeScale;
+        mapPoints[stage] = {
+          x: center.x + Math.cos(angle) * (orbitRadiusX + wobble * 0.4),
+          y: center.y + Math.sin(angle) * (orbitRadiusY + wobble * 0.28),
+        };
       }
-
-      const offset = moonOffsets[levelIndex - 5];
-      return { x: moonCenter.x + offset.x, y: moonCenter.y + offset.y };
     });
 
-    const routeBaseGlow = this.add.graphics().setDepth(178);
-    routeBaseGlow.lineStyle(7 * routeScale, 0x5f9ed7, 0.18);
-    routeBaseGlow.beginPath();
-    routeBaseGlow.moveTo(mapPoints[0].x, mapPoints[0].y);
-    for (let i = 1; i < mapPoints.length; i += 1) {
-      routeBaseGlow.lineTo(mapPoints[i].x, mapPoints[i].y);
+    for (let i = 0; i < mapPoints.length; i += 1) {
+      if (!mapPoints[i]) {
+        mapPoints[i] = {
+          x: centerX + ((i % LEVELS_PER_WORLD) - 2) * 70 * routeScale,
+          y: centerY + (Math.floor(i / LEVELS_PER_WORLD) - 1.5) * 62 * routeScale,
+        };
+      }
     }
-    routeBaseGlow.strokePath();
+
+    const canonicalStageTotal = ROADMAP_WORLDS.length * LEVELS_PER_WORLD;
+    if (mapPoints.length > canonicalStageTotal) {
+      const testStageIndex = mapPoints.length - 1;
+      mapPoints[testStageIndex] = {
+        x: centerX,
+        y: centerY + (tiny ? 16 : 10) * routeScale,
+      };
+    }
+
+    const worldRanges = ROADMAP_WORLDS.map((world, worldIndex) => {
+      const startIndex = Phaser.Math.Clamp(world.startLevel - 1, 0, LEVELS.length - 1);
+      const endIndex = Phaser.Math.Clamp(startIndex + world.count - 1, 0, LEVELS.length - 1);
+      return { worldIndex, startIndex, endIndex };
+    });
+    const drawRouteSegments = (graphics, maxStage) => {
+      worldRanges.forEach((range, rangeIndex) => {
+        const segmentEnd = Math.min(range.endIndex, maxStage);
+        if (segmentEnd < range.startIndex) {
+          return;
+        }
+
+        graphics.beginPath();
+        graphics.moveTo(mapPoints[range.startIndex].x, mapPoints[range.startIndex].y);
+        for (let stage = range.startIndex + 1; stage <= segmentEnd; stage += 1) {
+          graphics.lineTo(mapPoints[stage].x, mapPoints[stage].y);
+        }
+        graphics.strokePath();
+
+        const nextRange = worldRanges[rangeIndex + 1];
+        if (!nextRange || maxStage < nextRange.startIndex || segmentEnd < range.endIndex) {
+          return;
+        }
+
+        const from = mapPoints[range.endIndex];
+        const to = mapPoints[nextRange.startIndex];
+        graphics.beginPath();
+        graphics.moveTo(from.x, from.y);
+
+        if (rangeIndex === 1) {
+          // Moon -> Mars: route through the center corridor to avoid crossing level nodes.
+          const corridorY = centerY + panelHeight * 0.02;
+          const wp1 = {
+            x: from.x + 34 * routeScale,
+            y: from.y + 8 * routeScale,
+          };
+          const wp2 = {
+            x: centerX + panelWidth * 0.18,
+            y: corridorY,
+          };
+          const wp3 = {
+            x: centerX - panelWidth * 0.2,
+            y: corridorY + 2 * routeScale,
+          };
+          const wp4 = {
+            x: to.x - 34 * routeScale,
+            y: to.y - 10 * routeScale,
+          };
+
+          graphics.lineTo(wp1.x, wp1.y);
+          graphics.lineTo(wp2.x, wp2.y);
+          graphics.lineTo(wp3.x, wp3.y);
+          graphics.lineTo(wp4.x, wp4.y);
+          graphics.lineTo(to.x, to.y);
+        } else {
+          // Other world transitions keep a direct single-line connector.
+          graphics.lineTo(to.x, to.y);
+        }
+
+        graphics.strokePath();
+      });
+
+      const lastWorldEnd = worldRanges.length ? worldRanges[worldRanges.length - 1].endIndex : -1;
+      if (lastWorldEnd >= 0 && maxStage > lastWorldEnd) {
+        graphics.beginPath();
+        graphics.moveTo(mapPoints[lastWorldEnd].x, mapPoints[lastWorldEnd].y);
+        for (let stage = lastWorldEnd + 1; stage <= maxStage; stage += 1) {
+          graphics.lineTo(mapPoints[stage].x, mapPoints[stage].y);
+        }
+        graphics.strokePath();
+      }
+    };
+
+    const fullStageLimit = Math.max(0, mapPoints.length - 1);
+    const visibleStageLimit = Math.max(0, Math.min(unlockedStage, fullStageLimit));
+
+    const routeFuture = this.add.graphics().setDepth(177);
+    routeFuture.lineStyle(1.8, 0x3d5370, 0.46);
+    drawRouteSegments(routeFuture, fullStageLimit);
+
+    const routeBaseGlow = this.add.graphics().setDepth(178);
+    routeBaseGlow.lineStyle(tiny ? 4.2 : 5.2, 0x5f9ed7, 0.16);
+    drawRouteSegments(routeBaseGlow, visibleStageLimit);
 
     const routeBase = this.add.graphics().setDepth(178);
-    routeBase.lineStyle(2.4, 0x365171, 0.92);
-    routeBase.beginPath();
-    routeBase.moveTo(mapPoints[0].x, mapPoints[0].y);
-    for (let i = 1; i < mapPoints.length; i += 1) {
-      routeBase.lineTo(mapPoints[i].x, mapPoints[i].y);
-    }
-    routeBase.strokePath();
+    routeBase.lineStyle(2.3, 0x365171, 0.92);
+    drawRouteSegments(routeBase, visibleStageLimit);
 
     const routeUnlocked = this.add.graphics().setDepth(179);
-    routeUnlocked.lineStyle(2.8, 0x71dcff, 0.85);
-    if (unlockedStage > 0) {
-      routeUnlocked.beginPath();
-      routeUnlocked.moveTo(mapPoints[0].x, mapPoints[0].y);
-      for (let i = 1; i <= Math.min(unlockedStage, mapPoints.length - 1); i += 1) {
-        routeUnlocked.lineTo(mapPoints[i].x, mapPoints[i].y);
-      }
-      routeUnlocked.strokePath();
-    }
+    routeUnlocked.lineStyle(2.7, 0x71dcff, 0.85);
+    drawRouteSegments(routeUnlocked, visibleStageLimit);
 
-    this.levelSelectContainer.add([routeBaseGlow, routeBase, routeUnlocked]);
+    this.levelSelectContainer.add([routeFuture, routeBaseGlow, routeBase, routeUnlocked]);
+
+    const allowAllStageSelection = true;
 
     LEVELS.forEach((level, levelIndex) => {
       const stageIndex = levelIndex;
       const isUnlocked = stageIndex <= unlockedStage;
+      const isDiscovered = allowAllStageSelection || isUnlocked;
+      const isSelectable = allowAllStageSelection || isUnlocked;
       const isCompleted = stageIndex < unlockedStage;
       const isCurrent = stageIndex === currentStage;
       const point = mapPoints[levelIndex];
+
+      const radius = tiny ? 11 : 13;
+
+      if (!isDiscovered) {
+        const fogBase = this.add
+          .ellipse(point.x, point.y, radius * 3.25, radius * 2.3, 0x4d617c, 0.46)
+          .setStrokeStyle(1.2, 0xaec8e2, 0.25);
+        const fogSheen = this.add.ellipse(point.x + radius * 0.22, point.y - radius * 0.18, radius * 2.5, radius * 1.54, 0xd9eaff, 0.1);
+        const fogHint = this.add
+          .text(point.x, point.y + 0.2, '?', {
+            fontFamily: UI_THEME.fontFamily,
+            fontSize: tiny ? '13px' : '15px',
+            color: '#d9e8f7',
+          })
+          .setOrigin(0.5)
+          .setAlpha(0.8);
+
+        this.levelSelectContainer.add([fogBase, fogSheen, fogHint]);
+        return;
+      }
 
       let fill = 0x1f2f45;
       let stroke = 0x566a84;
@@ -894,39 +1148,48 @@ export class MenuScene extends Phaser.Scene {
         glowAlpha = 0.42;
       }
 
-      const glow = this.add.circle(point.x, point.y, Math.max(22, 32 * routeScale), stroke, glowAlpha);
+      const glow = this.add.circle(point.x, point.y, radius + (tiny ? 7 : 10), stroke, glowAlpha);
+      const clickTarget = this.add
+        .circle(point.x, point.y, radius + (tiny ? 10 : 13), 0x000000, 0.001)
+        .setDepth(1);
       const node = this.add
-        .circle(point.x, point.y, Math.max(14, 22 * routeScale), fill, 1)
+        .circle(point.x, point.y, radius, fill, 1)
         .setStrokeStyle(2.2, stroke, 1);
       const nodeText = this.add
         .text(point.x, point.y, String(level.id), {
           fontFamily: UI_THEME.fontFamily,
-          fontSize: `${Math.max(14, Math.round(20 * routeScale))}px`,
+          fontSize: tiny ? '12px' : '14px',
           color: textColor,
         })
         .setOrigin(0.5);
-      const levelLabel = this.add
-        .text(point.x, point.y + Math.max(26, 38 * routeScale), level.name, {
-          fontFamily: UI_THEME.fontFamily,
-          fontSize: `${Math.max(11, Math.round(15 * routeScale))}px`,
-          color: isUnlocked ? '#d4ebff' : '#70829a',
-        })
-        .setOrigin(0.5);
+      const levelLabel = !tiny
+        ? this.add
+            .text(point.x, point.y + 24, compact && level.name.length > 12 ? `${level.name.slice(0, 11)}…` : level.name, {
+              fontFamily: UI_THEME.fontFamily,
+              fontSize: compact ? '10px' : '11px',
+              color: isUnlocked ? '#d4ebff' : '#70829a',
+            })
+            .setOrigin(0.5)
+        : null;
 
-      if (isUnlocked) {
-        node.setInteractive({ useHandCursor: true });
-        node.on('pointerup', () => this.startLevel(stageIndex));
-        node.on('pointerover', () => {
+      if (isSelectable) {
+        clickTarget.setInteractive({ useHandCursor: true });
+        clickTarget.on('pointerup', () => this.startLevel(stageIndex));
+        clickTarget.on('pointerover', () => {
           node.setScale(1.14);
           glow.setAlpha(Math.min(glow.alpha + 0.2, 0.7));
         });
-        node.on('pointerout', () => {
+        clickTarget.on('pointerout', () => {
           node.setScale(1);
           glow.setAlpha(glowAlpha);
         });
       }
 
-      this.levelSelectContainer.add([glow, node, nodeText, levelLabel]);
+      if (levelLabel) {
+        this.levelSelectContainer.add([glow, clickTarget, node, nodeText, levelLabel]);
+      } else {
+        this.levelSelectContainer.add([glow, clickTarget, node, nodeText]);
+      }
     });
   }
 

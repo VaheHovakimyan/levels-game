@@ -100,16 +100,19 @@ function drawButtonIcon(graphics, iconKey, color) {
       graphics.fillRect(3, -8, 4, 16);
       break;
     case 'restart':
-      graphics.lineStyle(2.6, color, 0.96);
+      graphics.lineStyle(1.5, color, 0.26);
+      graphics.strokeCircle(0, 0, 8.8);
+
+      graphics.lineStyle(2.8, color, 0.98);
       graphics.beginPath();
-      graphics.arc(0.5, 0.2, 7.2, Math.PI * 0.2, Math.PI * 1.92, false);
+      graphics.arc(0, 0, 6.8, Math.PI * 0.94, Math.PI * 2.08, false);
       graphics.strokePath();
 
       graphics.fillStyle(color, 0.98);
-      graphics.fillTriangle(9.1, -3.2, 11.8, -8.4, 6.5, -7);
+      graphics.fillTriangle(8.2, -0.2, 12.1, -3.4, 11.3, 1.2);
 
-      graphics.fillStyle(color, 0.36);
-      graphics.fillCircle(0.5, 0.2, 1.35);
+      graphics.fillStyle(color, 0.28);
+      graphics.fillCircle(0, 0, 1.2);
       break;
     case 'roadmap':
       graphics.beginPath();

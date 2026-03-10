@@ -12,6 +12,9 @@ import { SoundManager } from '../systems/SoundManager';
 import { getSkinLabel, PLAYER_SKINS, sanitizeSkinKey } from '../entities/playerArt';
 
 const RESPAWN_DELAY_MS = 260;
+const CAMERA_BOTTOM_SAFE_RATIO = 0.12;
+const CAMERA_BOTTOM_SAFE_MIN = 42;
+const CAMERA_BOTTOM_SAFE_MAX = 72;
 
 export class LevelScene extends Phaser.Scene {
   constructor() {
@@ -72,6 +75,7 @@ export class LevelScene extends Phaser.Scene {
     this.registry.set('selectedSkin', selectedSkin);
 
     this.player = new Player(this, levelInfo.spawn.x, levelInfo.spawn.y, selectedSkin);
+    this.player.restoreVisibility?.();
     this.player.setModifiers(levelInfo.modifiers);
 
     this.keys = this.input.keyboard.addKeys({
@@ -91,7 +95,7 @@ export class LevelScene extends Phaser.Scene {
     this.player.setInput(this.keys, this.virtualControls);
 
     this.cameras.main.setZoom(1);
-    this.cameras.main.startFollow(this.player, true, 0.16, 0.16);
+    this.cameras.main.startFollow(this.player, true, 0.16, 0.16, 0, this.getCameraFollowOffsetY());
     this.cameras.main.fadeIn(200, 6, 10, 20);
 
     this.trapController = new TrapController(this, {
@@ -206,7 +210,17 @@ export class LevelScene extends Phaser.Scene {
     );
 
     camera.setScroll(targetX, 0);
-    camera.startFollow(this.player, true, 0.16, 0.16);
+    camera.startFollow(this.player, true, 0.16, 0.16, 0, this.getCameraFollowOffsetY());
+  }
+
+  getCameraFollowOffsetY() {
+    const bottomSafePx = Phaser.Math.Clamp(
+      this.cameras.main.height * CAMERA_BOTTOM_SAFE_RATIO,
+      CAMERA_BOTTOM_SAFE_MIN,
+      CAMERA_BOTTOM_SAFE_MAX,
+    );
+    // Negative offset keeps the player higher in view, creating visual space above bottom controls.
+    return -bottomSafePx;
   }
 
   spawnDeathBurst(x, y) {
@@ -297,6 +311,7 @@ export class LevelScene extends Phaser.Scene {
       this.respawnTimer = null;
     }
 
+    this.player?.restoreVisibility?.();
     this.physics.world.resume();
     this.scene.restart({ stageIndex: this.stageIndex });
   }
@@ -309,6 +324,7 @@ export class LevelScene extends Phaser.Scene {
       this.respawnTimer = null;
     }
 
+    this.player?.restoreVisibility?.();
     this.physics.world.resume();
     this.scene.restart({ stageIndex: target });
   }
@@ -328,6 +344,7 @@ export class LevelScene extends Phaser.Scene {
       this.respawnTimer = null;
     }
 
+    this.player?.restoreVisibility?.();
     this.physics.world.resume();
     if (this.scene.isActive(SCENE_KEYS.UI)) {
       this.scene.stop(SCENE_KEYS.UI);

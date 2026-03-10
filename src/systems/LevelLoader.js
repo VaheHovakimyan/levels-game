@@ -5,6 +5,7 @@ import { Trap } from '../entities/Trap';
 import { Door } from '../entities/Door';
 
 const LEGACY_LEVEL_HEIGHT = 540;
+const CAMERA_BOTTOM_UI_GUTTER = 96;
 
 export class LevelLoader {
   constructor(scene) {
@@ -31,7 +32,8 @@ export class LevelLoader {
     this.scene.physics.world.setBounds(0, 0, levelData.worldWidth, LEVEL_HEIGHT);
     // Keep top / side bounds, but allow falling past bottom into pits.
     this.scene.physics.world.setBoundsCollision(true, true, true, false);
-    this.scene.cameras.main.setBounds(0, 0, levelData.worldWidth, LEVEL_HEIGHT);
+    // Add a small extra camera-only gutter so bottom on-screen controls don't cover the player.
+    this.scene.cameras.main.setBounds(0, 0, levelData.worldWidth, LEVEL_HEIGHT + CAMERA_BOTTOM_UI_GUTTER);
 
     this.drawBackground(levelData);
 
@@ -324,6 +326,7 @@ export class LevelLoader {
     const midY = LEVEL_HEIGHT / 2;
     const themeIndex = (levelData.id - 1) % 4;
     const palette = this.getSpacePalette(themeIndex);
+    const bottomFillColor = Phaser.Display.Color.HexStringToColor(palette.skyBottom).color;
     const lowPowerDevice =
       (typeof navigator !== 'undefined' && navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
       (typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory <= 4);
@@ -332,6 +335,17 @@ export class LevelLoader {
     const cometCount = lowPowerDevice ? 2 : 4;
     const gradientKey = this.ensureSpaceGradientTexture(worldWidth, themeIndex, palette);
     this.ensureSpaceBodyTextures();
+
+    const bottomGutterFill = this.scene
+      .add.rectangle(
+        worldWidth / 2,
+        LEVEL_HEIGHT + CAMERA_BOTTOM_UI_GUTTER * 0.5,
+        worldWidth,
+        CAMERA_BOTTOM_UI_GUTTER,
+        bottomFillColor,
+        1,
+      )
+      .setDepth(-45);
 
     const background = this.scene.add.image(worldWidth / 2, midY, gradientKey).setDepth(-44);
     const glow = this.scene
@@ -470,6 +484,7 @@ export class LevelLoader {
     }
 
     this.backgroundLayer.push(
+      bottomGutterFill,
       background,
       glow,
       nebulaCloudA,

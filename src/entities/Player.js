@@ -13,6 +13,36 @@ const LAND_SQUASH_MIN_FALL_SPEED = 170;
 const LAND_SQUASH_COOLDOWN_MS = 160;
 const JETPACK_BURST_COOLDOWN_MS = 42;
 
+function getTouchPlayerScaleMultiplier(scene) {
+  const device = scene.sys.game.device;
+  const isTouchDevice = Boolean(device.input.touch) && !Boolean(device.os.desktop);
+  if (!isTouchDevice) {
+    return 1;
+  }
+
+  const displayWidth = scene.scale.displaySize?.width ?? scene.scale.width;
+  const displayHeight = scene.scale.displaySize?.height ?? scene.scale.height;
+  const gameWidth = scene.scale.gameSize?.width ?? scene.scale.width;
+  const gameHeight = scene.scale.gameSize?.height ?? scene.scale.height;
+  const scaleX = displayWidth / gameWidth || 1;
+  const scaleY = displayHeight / gameHeight || 1;
+  const displayScale = Math.min(scaleX, scaleY) || 1;
+
+  if (displayScale <= 0.34) {
+    return 1.46;
+  }
+
+  if (displayScale <= 0.52) {
+    return 1.34;
+  }
+
+  if (displayScale <= 0.68) {
+    return 1.24;
+  }
+
+  return 1.16;
+}
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   constructor(scene, x, y, skinKey = 'apollo') {
     const safeSkin = sanitizeSkinKey(skinKey);
@@ -22,8 +52,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.scene.add.existing(this);
     this.scene.physics.add.existing(this);
 
+    this.baseScale = PLAYER_BASE_SCALE * getTouchPlayerScaleMultiplier(this.scene);
+
     this.setOrigin(0.5, 0.5);
-    this.setScale(PLAYER_BASE_SCALE);
+    this.setScale(this.baseScale);
+    this.setAlpha(1);
     this.setDepth(300);
 
     this.body.setSize(BODY_W, BODY_H);
@@ -54,6 +87,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.lastJetpackAt = -JETPACK_BURST_COOLDOWN_MS;
 
     this.setStaticIdlePose();
+  }
+
+  restoreVisibility() {
+    this.setVisible(true);
+    this.setAlpha(1);
+    this.clearTint();
   }
 
   setSkin(skinKey) {
@@ -106,11 +145,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   playJumpSquash() {
     this.scene.tweens.killTweensOf(this);
-    this.setScale(PLAYER_BASE_SCALE * 1.05, PLAYER_BASE_SCALE * 0.9);
+    this.setScale(this.baseScale * 1.05, this.baseScale * 0.9);
     this.scene.tweens.add({
       targets: this,
-      scaleX: PLAYER_BASE_SCALE,
-      scaleY: PLAYER_BASE_SCALE,
+      scaleX: this.baseScale,
+      scaleY: this.baseScale,
       duration: 120,
       ease: 'Quad.Out',
     });
@@ -118,11 +157,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   playLandSquash() {
     this.scene.tweens.killTweensOf(this);
-    this.setScale(PLAYER_BASE_SCALE * 0.88, PLAYER_BASE_SCALE * 1.1);
+    this.setScale(this.baseScale * 0.88, this.baseScale * 1.1);
     this.scene.tweens.add({
       targets: this,
-      scaleX: PLAYER_BASE_SCALE,
-      scaleY: PLAYER_BASE_SCALE,
+      scaleX: this.baseScale,
+      scaleY: this.baseScale,
       duration: 140,
       ease: 'Quad.Out',
     });
@@ -141,18 +180,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   playRespawnFeedback() {
-    this.clearTint();
+    this.restoreVisibility();
     this.setAlpha(0.3);
-    this.setScale(PLAYER_BASE_SCALE * 0.82, PLAYER_BASE_SCALE * 1.14);
+    this.setScale(this.baseScale * 0.82, this.baseScale * 1.14);
     this.angle = 0;
     this.scene.tweens.killTweensOf(this);
     this.scene.tweens.add({
       targets: this,
       alpha: 1,
-      scaleX: PLAYER_BASE_SCALE,
-      scaleY: PLAYER_BASE_SCALE,
+      scaleX: this.baseScale,
+      scaleY: this.baseScale,
       duration: 170,
       ease: 'Back.Out',
+      onComplete: () => {
+        if (this.active) {
+          this.restoreVisibility();
+        }
+      },
     });
   }
 
@@ -233,8 +277,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.maxAirborneDownSpeed = 0;
     this.lastLandSquashAt = -LAND_SQUASH_COOLDOWN_MS;
     this.lastJetpackAt = -JETPACK_BURST_COOLDOWN_MS;
+    this.restoreVisibility();
     this.unfreeze();
     this.playRespawnFeedback();
+    this.scene.time.delayedCall(220, () => {
+      if (this.active) {
+        this.restoreVisibility();
+      }
+    });
     this.setStaticIdlePose();
   }
 

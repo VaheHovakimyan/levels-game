@@ -1,0 +1,68 @@
+<svg width="48" height="48" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- glow -->
+    <ellipse cx="128" cy="202" rx="70" ry="18" fill="#7C3AED" fill-opacity="0.18" />
+
+    <!-- beam / trap zone -->
+    <path d="M92 178L72 240H184L164 178Z" fill="#22D3EE" fill-opacity="0.16" />
+
+    <!-- ship bottom -->
+    <ellipse cx="128" cy="176" rx="78" ry="30" fill="#4B5563" />
+    <ellipse cx="128" cy="170" rx="78" ry="28" fill="#6B7280" />
+
+    <!-- ship lights -->
+    <circle cx="72" cy="178" r="6" fill="#EF4444" />
+    <circle cx="98" cy="188" r="6" fill="#F59E0B" />
+    <circle cx="128" cy="192" r="6" fill="#22C55E" />
+    <circle cx="158" cy="188" r="6" fill="#F59E0B" />
+    <circle cx="184" cy="178" r="6" fill="#EF4444" />
+
+    <!-- ship top ring -->
+    <ellipse cx="128" cy="152" rx="58" ry="18" fill="#9CA3AF" />
+
+    <!-- glass dome -->
+    <path d="M82 148C82 113.758 102.147 86 128 86C153.853 86 174 113.758 174 148H82Z" fill="#93C5FD"
+        fill-opacity="0.55" />
+    <path d="M82 148C82 113.758 102.147 86 128 86C153.853 86 174 113.758 174 148" stroke="#E0F2FE"
+        stroke-width="4" stroke-linecap="round" />
+
+    <!-- glass shine -->
+    <path d="M104 98C94 110 90 123 90 141" stroke="white" stroke-opacity="0.65" stroke-width="5"
+        stroke-linecap="round" />
+
+    <!-- alien head -->
+    <ellipse cx="128" cy="118" rx="24" ry="28" fill="#84CC16" />
+
+    <!-- alien eyes -->
+    <ellipse cx="118" cy="116" rx="6" ry="11" fill="#111827" />
+    <ellipse cx="138" cy="116" rx="6" ry="11" fill="#111827" />
+    <circle cx="116" cy="112" r="2" fill="#F9FAFB" />
+    <circle cx="136" cy="112" r="2" fill="#F9FAFB" />
+
+    <!-- alien mouth -->
+    <path d="M120 132C124 135 132 135 136 132" stroke="#365314" stroke-width="3"
+        stroke-linecap="round" />
+
+    <!-- alien antenna -->
+    <path d="M120 90L114 75" stroke="#84CC16" stroke-width="4" stroke-linecap="round" />
+    <path d="M136 90L142 75" stroke="#84CC16" stroke-width="4" stroke-linecap="round" />
+    <circle cx="113" cy="72" r="5" fill="#A3E635" />
+    <circle cx="143" cy="72" r="5" fill="#A3E635" />
+
+    <!-- alien body -->
+    <path d="M110 144C110 136 116 132 128 132C140 132 146 136 146 144V154H110V144Z" fill="#65A30D" />
+
+    <!-- arms -->
+    <path d="M110 146L96 152" stroke="#84CC16" stroke-width="4" stroke-linecap="round" />
+    <path d="M146 146L160 152" stroke="#84CC16" stroke-width="4" stroke-linecap="round" />
+
+    <!-- little hands -->
+    <circle cx="94" cy="153" r="3" fill="#A3E635" />
+    <circle cx="162" cy="153" r="3" fill="#A3E635" />
+
+    <!-- cockpit details -->
+    <ellipse cx="128" cy="152" rx="22" ry="6" fill="#D1D5DB" />
+    <rect x="118" y="156" width="20" height="6" rx="3" fill="#374151" />
+
+    <!-- bottom shadow -->
+    <ellipse cx="128" cy="182" rx="50" ry="12" fill="black" fill-opacity="0.18" />
+</svg>

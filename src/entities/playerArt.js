@@ -64,6 +64,66 @@ export const PLAYER_SKINS = [
       jet: '#c6dcff',
     },
   },
+  {
+    key: 'batran',
+    label: 'Batran Shadow',
+    palette: {
+      suit: '#2d313e',
+      suitDark: '#161923',
+      trim: '#f2c15f',
+      trimDark: '#916b24',
+      visor: '#ffe8bb',
+      visorDark: '#7d5d29',
+      boot: '#10131b',
+      glove: '#202634',
+      jet: '#ffd792',
+    },
+  },
+  {
+    key: 'webcore',
+    label: 'Webcore Runner',
+    palette: {
+      suit: '#dfe7ff',
+      suitDark: '#546aa6',
+      trim: '#ff5d68',
+      trimDark: '#8f1f2a',
+      visor: '#bce6ff',
+      visorDark: '#346085',
+      boot: '#32446f',
+      glove: '#4b5f97',
+      jet: '#ffc0c6',
+    },
+  },
+  {
+    key: 'voltforge',
+    label: 'Voltforge Hero',
+    palette: {
+      suit: '#d7f0ff',
+      suitDark: '#5584a6',
+      trim: '#ffd65e',
+      trimDark: '#8f6a1b',
+      visor: '#fff2bd',
+      visorDark: '#7a6230',
+      boot: '#374f70',
+      glove: '#4f7099',
+      jet: '#ffe3a0',
+    },
+  },
+  {
+    key: 'ironpulse',
+    label: 'Ironpulse Prime',
+    palette: {
+      suit: '#ffddd7',
+      suitDark: '#9b5e56',
+      trim: '#7fd4ff',
+      trimDark: '#2d6b8e',
+      visor: '#b3f1ff',
+      visorDark: '#2f6c7a',
+      boot: '#5b3130',
+      glove: '#7e4845',
+      jet: '#9be7ff',
+    },
+  },
 ];
 
 function getSkinByKey(skinKey) {
@@ -178,11 +238,33 @@ function drawAstronaut(ctx, palette, pose) {
   const shoulderY = baseY - 4.6;
   const shoulderOffset = 5.4;
 
-  fillRoundRect(ctx, cX - 6, baseY - 7, 12, 16, 4, palette.suit);
-  strokeRoundRect(ctx, cX - 6, baseY - 7, 12, 16, 4, palette.suitDark, 1.1);
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  ctx.ellipse(cX, baseY + 11.4, 6.8, 2.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
-  fillRoundRect(ctx, cX - 3, baseY - 6, 6, 3, 1.3, palette.trim);
-  fillRoundRect(ctx, cX - 1.8, baseY - 2.2, 3.6, 6.8, 1.2, palette.trimDark);
+  fillRoundRect(ctx, cX - 4.7, baseY - 6.6, 9.4, 10.5, 2.3, palette.suitDark);
+  fillRoundRect(ctx, cX - 3.9, baseY + 2.8, 3.2, 2.8, 1.1, palette.boot);
+  fillRoundRect(ctx, cX + 0.7, baseY + 2.8, 3.2, 2.8, 1.1, palette.boot);
+
+  const suitGradient = ctx.createLinearGradient(cX, baseY - 7.4, cX, baseY + 10);
+  suitGradient.addColorStop(0, palette.suit);
+  suitGradient.addColorStop(0.52, palette.suit);
+  suitGradient.addColorStop(1, palette.suitDark);
+  fillRoundRect(ctx, cX - 6, baseY - 7.2, 12, 16.4, 4.4, suitGradient);
+  strokeRoundRect(ctx, cX - 6, baseY - 7.2, 12, 16.4, 4.4, palette.suitDark, 1.15);
+
+  fillRoundRect(ctx, cX - 5.8, baseY - 6.8, 2.2, 4.3, 1, palette.suitDark);
+  fillRoundRect(ctx, cX + 3.6, baseY - 6.8, 2.2, 4.3, 1, palette.suitDark);
+  fillRoundRect(ctx, cX - 3.3, baseY - 5.8, 6.6, 2.9, 1.3, palette.trim);
+  fillRoundRect(ctx, cX - 2.1, baseY - 1.8, 4.2, 6.5, 1.2, palette.trimDark);
+  fillRoundRect(ctx, cX - 2.7, baseY + 5.4, 5.4, 1.9, 0.8, palette.boot);
+  fillRoundRect(ctx, cX - 1.2, baseY - 1.1, 0.8, 0.8, 0.2, '#eaffff');
+  fillRoundRect(ctx, cX + 0.4, baseY - 1.1, 0.8, 0.8, 0.2, '#eaffff');
+  fillRoundRect(ctx, cX - 0.4, baseY + 0.6, 0.8, 0.8, 0.2, '#eaffff');
 
   // Shoulder joints; keep small to avoid "extra hand" artifacts during run.
   fillRoundRect(ctx, cX - 7.1, shoulderY - 1.9, 2.1, 3.8, 1, palette.suitDark);
@@ -194,10 +276,17 @@ function drawAstronaut(ctx, palette, pose) {
   drawLeg(ctx, cX - 2.8, baseY + 8, 8.4, 2.8, Math.PI * (0.58 + legSwing), palette.suitDark, palette.boot);
   drawLeg(ctx, cX + 2.8, baseY + 8, 8.4, 2.8, Math.PI * (0.42 - legSwing), palette.suitDark, palette.boot);
 
-  fillRoundRect(ctx, cX - 4.4, baseY - 6.8, 8.8, 4, 1.6, palette.suitDark);
+  fillRoundRect(ctx, cX - 4.7, baseY - 6.9, 9.4, 3.8, 1.4, palette.suitDark);
+  fillRoundRect(ctx, cX - 3.8, baseY - 6.2, 1.3, 2.4, 0.6, palette.trimDark);
+  fillRoundRect(ctx, cX + 2.5, baseY - 6.2, 1.3, 2.4, 0.6, palette.trimDark);
+
   drawJetpackGlow(ctx, cX, baseY + 13.5, palette, thrust);
 
-  ctx.fillStyle = palette.suit;
+  const helmetGradient = ctx.createRadialGradient(cX - 2.2, baseY - 14.7, 1.8, cX, baseY - 11.6, 7.1);
+  helmetGradient.addColorStop(0, '#ffffff');
+  helmetGradient.addColorStop(0.25, palette.suit);
+  helmetGradient.addColorStop(1, palette.suitDark);
+  ctx.fillStyle = helmetGradient;
   ctx.beginPath();
   ctx.arc(cX, baseY - 12, 6.7, 0, Math.PI * 2);
   ctx.fill();
@@ -208,7 +297,11 @@ function drawAstronaut(ctx, palette, pose) {
   ctx.arc(cX, baseY - 12, 6.5, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.fillStyle = palette.visor;
+  const visorGradient = ctx.createLinearGradient(cX - 4.8, baseY - 14, cX + 4.8, baseY - 10);
+  visorGradient.addColorStop(0, '#ffffff');
+  visorGradient.addColorStop(0.22, palette.visor);
+  visorGradient.addColorStop(1, palette.visorDark);
+  ctx.fillStyle = visorGradient;
   ctx.beginPath();
   ctx.ellipse(cX, baseY - 12, 4.5, 3.2, -0.12, 0, Math.PI * 2);
   ctx.fill();
@@ -225,7 +318,16 @@ function drawAstronaut(ctx, palette, pose) {
   ctx.beginPath();
   ctx.ellipse(cX - 1.6, baseY - 13.2, 1.5, 0.9, -0.3, 0, Math.PI * 2);
   ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cX + 1.2, baseY - 11.4, 0.9, 0.45, -0.18, 0, Math.PI * 2);
+  ctx.fill();
   ctx.globalAlpha = 1;
+
+  fillRoundRect(ctx, cX + 3.2, baseY - 18.4, 1.1, 3.1, 0.5, palette.trimDark);
+  ctx.fillStyle = palette.trim;
+  ctx.beginPath();
+  ctx.arc(cX + 3.75, baseY - 18.7, 0.9, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function makeTexture(scene, key, drawFn) {

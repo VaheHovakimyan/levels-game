@@ -2,12 +2,14 @@ import Phaser from 'phaser';
 import { TOTAL_LEVELS } from './levels';
 
 export const SUBLEVELS_PER_LEVEL = 1;
-export const LEVELS_PER_WORLD = 5;
+export const LEVELS_PER_WORLD = 7;
 export const TOTAL_STAGES = TOTAL_LEVELS;
 
 export const ROADMAP_WORLDS = [
   { key: 'earth', name: 'Earth Orbit', startLevel: 1, count: LEVELS_PER_WORLD, color: 0x63a4ff },
-  { key: 'moon', name: 'Moon Frontier', startLevel: 6, count: LEVELS_PER_WORLD, color: 0xb3c7de },
+  { key: 'moon', name: 'Moon Frontier', startLevel: 8, count: LEVELS_PER_WORLD, color: 0xb3c7de },
+  { key: 'mars', name: 'Mars Frontier', startLevel: 15, count: LEVELS_PER_WORLD, color: 0xffb17f },
+  { key: 'singularity', name: 'Singularity Reach', startLevel: 22, count: LEVELS_PER_WORLD, color: 0xffa66f },
 ];
 
 export function clampStageIndex(stageIndex) {
@@ -25,7 +27,13 @@ export function getRoadmapStageInfo(stageIndex) {
   const levelIndex = safeStage;
   const sublevelIndex = 0;
   const worldIndex = Math.floor(levelIndex / LEVELS_PER_WORLD);
-  const world = ROADMAP_WORLDS[worldIndex] || ROADMAP_WORLDS[0];
+  const world = ROADMAP_WORLDS[worldIndex] || {
+    key: 'test',
+    name: 'Test Lab',
+    startLevel: TOTAL_LEVELS,
+    count: 1,
+    color: 0x8fd8ff,
+  };
 
   return {
     stageIndex: safeStage,
