@@ -3,6 +3,10 @@ import Phaser from 'phaser';
 const HIT_RADIUS_MULTIPLIER = 1.3;
 const MIN_TOUCH_RADIUS_PX = 38;
 const MAX_TOUCH_RADIUS_PX = 58;
+const EDGE_MARGIN_LANDSCAPE_PX = 24;
+const EDGE_MARGIN_PORTRAIT_PX = 30;
+const BOTTOM_MARGIN_LANDSCAPE_PX = 28;
+const BOTTOM_MARGIN_PORTRAIT_PX = 36;
 
 export class VirtualControls {
   constructor(scene) {
@@ -39,11 +43,36 @@ export class VirtualControls {
       this.createTouchControls();
       this.layoutControls();
 
-      this.onResize = () => this.layoutControls();
+      this.onResize = () => {
+        this.resetAll();
+        this.layoutControls();
+      };
       this.onGameOut = () => this.resetAll();
+      this.onVisualViewportChange = () => {
+        this.resetAll();
+        this.layoutControls();
+      };
+      this.onWindowResize = () => {
+        this.resetAll();
+        this.layoutControls();
+      };
+      this.onOrientationChange = () => {
+        this.resetAll();
+        this.layoutControls();
+        // Some mobile browsers update the visible viewport after orientation tick.
+        window.setTimeout(() => this.layoutControls(), 80);
+      };
 
       this.scene.scale.on('resize', this.onResize);
       this.scene.input.on('gameout', this.onGameOut);
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', this.onWindowResize);
+        window.addEventListener('orientationchange', this.onOrientationChange);
+      }
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        window.visualViewport.addEventListener('resize', this.onVisualViewportChange);
+        window.visualViewport.addEventListener('scroll', this.onVisualViewportChange);
+      }
     }
   }
 
@@ -66,11 +95,11 @@ export class VirtualControls {
   layoutControls() {
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
-    const landscape = width >= height;
     const displayWidth = this.scene.scale.displaySize?.width ?? width;
     const displayHeight = this.scene.scale.displaySize?.height ?? height;
     const gameWidth = this.scene.scale.gameSize?.width ?? width;
     const gameHeight = this.scene.scale.gameSize?.height ?? height;
+    const landscape = displayWidth >= displayHeight;
 
     const leftButton = this.controls.find((control) => control.key === 'left');
     const rightButton = this.controls.find((control) => control.key === 'right');
@@ -84,21 +113,25 @@ export class VirtualControls {
     const scaleY = displayHeight / gameHeight || 1;
     const displayScale = Math.min(scaleX, scaleY) || 1;
     const viewportShortSidePx = Math.min(displayWidth, displayHeight);
-    const moveRadiusPx = Phaser.Math.Clamp(viewportShortSidePx * 0.105, MIN_TOUCH_RADIUS_PX, MAX_TOUCH_RADIUS_PX);
-    const jumpRadiusPx = moveRadiusPx + 6;
+    const radiusPx = Phaser.Math.Clamp(viewportShortSidePx * 0.105, MIN_TOUCH_RADIUS_PX, MAX_TOUCH_RADIUS_PX);
+    const browserInsetsPx = this.getBrowserInsetsPx();
 
-    const moveRadius = moveRadiusPx / displayScale;
-    const jumpRadius = jumpRadiusPx / displayScale;
+    const moveRadius = radiusPx / displayScale;
+    const jumpRadius = radiusPx / displayScale;
     const gap = (landscape ? 14 : 18) / displayScale;
-    const sideMargin = (landscape ? 16 : 20) / displayScale;
-    const bottomMargin = (landscape ? 14 : 20) / displayScale;
+    const leftMargin =
+      ((landscape ? EDGE_MARGIN_LANDSCAPE_PX : EDGE_MARGIN_PORTRAIT_PX) + browserInsetsPx.left) / displayScale;
+    const rightMargin =
+      ((landscape ? EDGE_MARGIN_LANDSCAPE_PX : EDGE_MARGIN_PORTRAIT_PX) + browserInsetsPx.right) / displayScale;
+    const bottomMargin =
+      ((landscape ? BOTTOM_MARGIN_LANDSCAPE_PX : BOTTOM_MARGIN_PORTRAIT_PX) + browserInsetsPx.bottom) / displayScale;
 
-    const leftX = sideMargin + moveRadius;
+    const leftX = leftMargin + moveRadius;
     const rightX = leftX + moveRadius + gap + moveRadius;
-    const leftY = height - bottomMargin - moveRadius;
+    const leftY = Phaser.Math.Clamp(height - bottomMargin - moveRadius, moveRadius + 4, height - moveRadius - 4);
     const rightY = leftY;
-    const jumpX = width - sideMargin - jumpRadius;
-    const jumpY = height - bottomMargin - jumpRadius;
+    const jumpX = width - rightMargin - jumpRadius;
+    const jumpY = Phaser.Math.Clamp(height - bottomMargin - jumpRadius, jumpRadius + 4, height - jumpRadius - 4);
 
     leftButton.setPosition(leftX, leftY);
     rightButton.setPosition(rightX, rightY);
@@ -107,6 +140,27 @@ export class VirtualControls {
     leftButton.setRadius(moveRadius);
     rightButton.setRadius(moveRadius);
     jumpButton.setRadius(jumpRadius);
+  }
+
+  getBrowserInsetsPx() {
+    if (typeof window === 'undefined' || !window.visualViewport) {
+      return { left: 0, right: 0, bottom: 0 };
+    }
+
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport.offsetLeft || 0;
+    const viewportTop = viewport.offsetTop || 0;
+    const viewportRight = viewportLeft + viewport.width;
+    const viewportBottom = viewportTop + viewport.height;
+
+    const rightInset = Math.max(0, window.innerWidth - viewportRight);
+    const bottomInset = Math.max(0, window.innerHeight - viewportBottom);
+
+    return {
+      left: Math.max(0, viewportLeft),
+      right: rightInset,
+      bottom: bottomInset,
+    };
   }
 
   makePad(key, icon, radius = 30) {
@@ -247,6 +301,14 @@ export class VirtualControls {
     if (this.enabled) {
       this.scene.scale.off('resize', this.onResize);
       this.scene.input.off('gameout', this.onGameOut);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', this.onWindowResize);
+        window.removeEventListener('orientationchange', this.onOrientationChange);
+      }
+      if (typeof window !== 'undefined' && window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', this.onVisualViewportChange);
+        window.visualViewport.removeEventListener('scroll', this.onVisualViewportChange);
+      }
     }
 
     this.controls.forEach((control) => control.destroy());

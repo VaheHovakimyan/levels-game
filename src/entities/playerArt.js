@@ -2,6 +2,8 @@ const FRAME_W = 30;
 const FRAME_H = 40;
 const RUN_FRAME_COUNT = 10;
 const RUN_CYCLE = Math.PI * 2;
+const ART_SUPERSAMPLE = 3;
+let supersampleSurface = null;
 
 export const PLAYER_SKINS = [
   {
@@ -338,8 +340,58 @@ function makeTexture(scene, key, drawFn) {
   const texture = scene.textures.createCanvas(key, FRAME_W, FRAME_H);
   const ctx = texture.context;
   ctx.clearRect(0, 0, FRAME_W, FRAME_H);
-  drawFn(ctx);
+
+  if (ART_SUPERSAMPLE <= 1) {
+    drawFn(ctx);
+    texture.refresh();
+    return;
+  }
+
+  const supersampledCanvas = getSupersampleCanvas();
+  if (!supersampledCanvas) {
+    drawFn(ctx);
+    texture.refresh();
+    return;
+  }
+
+  const supersampledCtx = supersampledCanvas.getContext('2d');
+
+  if (!supersampledCtx) {
+    drawFn(ctx);
+    texture.refresh();
+    return;
+  }
+
+  const supersampledWidth = FRAME_W * ART_SUPERSAMPLE;
+  const supersampledHeight = FRAME_H * ART_SUPERSAMPLE;
+  supersampledCtx.clearRect(0, 0, supersampledWidth, supersampledHeight);
+  supersampledCtx.imageSmoothingEnabled = true;
+  supersampledCtx.imageSmoothingQuality = 'high';
+  supersampledCtx.save();
+  supersampledCtx.scale(ART_SUPERSAMPLE, ART_SUPERSAMPLE);
+  drawFn(supersampledCtx);
+  supersampledCtx.restore();
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(supersampledCanvas, 0, 0, supersampledWidth, supersampledHeight, 0, 0, FRAME_W, FRAME_H);
   texture.refresh();
+}
+
+function getSupersampleCanvas() {
+  if (supersampleSurface) {
+    return supersampleSurface;
+  }
+
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = FRAME_W * ART_SUPERSAMPLE;
+  canvas.height = FRAME_H * ART_SUPERSAMPLE;
+  supersampleSurface = canvas;
+  return supersampleSurface;
 }
 
 function drawIdle(ctx, palette) {

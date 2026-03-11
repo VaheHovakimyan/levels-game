@@ -14,18 +14,6 @@ function tentaclePalette() {
   };
 }
 
-function dronePalette() {
-  return {
-    hull: 0x7081cc,
-    hullDark: 0x232f62,
-    wing: 0x5068ba,
-    cockpit: 0x9bd8ff,
-    eye: 0xd9ffff,
-    glow: 0x5ee7ff,
-    engine: 0x9af6ff,
-  };
-}
-
 export class Trap extends Phaser.GameObjects.Rectangle {
   constructor(scene, config) {
     super(scene, config.x, config.y, config.width || 28, config.height || 18, 0xffffff, 0.001);
@@ -58,8 +46,9 @@ export class Trap extends Phaser.GameObjects.Rectangle {
     this.createAlienVisuals();
 
     if (this.type === 'proximitySpike') {
-      this.setVisualAlpha(0.14);
-      this.body.enable = false;
+      this.activated = true;
+      this.body.enable = true;
+      this.setVisualAlpha(0);
     }
 
     if (this.type === 'movingHazard' && !this.movementActivated) {
@@ -74,50 +63,21 @@ export class Trap extends Phaser.GameObjects.Rectangle {
 
   createAlienVisuals() {
     if (this.type === 'movingHazard') {
-      const p = dronePalette();
-      this.engineGlow = this.scene.add.ellipse(this.x, this.y + 3, this.width * 1.2, this.height * 0.7, p.glow, 0.24).setDepth(166);
-      this.glow = this.scene.add.ellipse(this.x, this.y + 1, this.width * 1.95, this.height * 1.28, p.glow, 0.14).setDepth(167);
-      this.wingL = this.scene
-        .add.ellipse(this.x - this.width * 0.54, this.y, this.width * 0.58, this.height * 0.3, p.wing, 0.9)
-        .setAngle(-18)
-        .setDepth(168);
-      this.wingR = this.scene
-        .add.ellipse(this.x + this.width * 0.54, this.y, this.width * 0.58, this.height * 0.3, p.wing, 0.9)
-        .setAngle(18)
-        .setDepth(168);
-      this.shellShadow = this.scene.add.ellipse(this.x, this.y + 1, this.width * 1.22, this.height * 0.9, p.hullDark, 0.92).setDepth(169);
-      this.shell = this.scene.add.ellipse(this.x, this.y - 1, this.width * 1.28, this.height * 0.9, p.hull, 0.98).setDepth(170);
-      this.ring = this.scene.add.ellipse(this.x, this.y + 0.5, this.width * 1.04, this.height * 0.58, p.hullDark, 0.92).setDepth(171);
-      this.cockpit = this.scene.add.ellipse(this.x, this.y - 1, this.width * 0.56, this.height * 0.36, p.cockpit, 0.9).setDepth(172);
-      this.eye = this.scene.add.circle(this.x, this.y - 1, this.height * 0.17, p.eye, 0.95).setDepth(173);
-      this.engineL = this.scene.add.ellipse(this.x - this.width * 0.2, this.y + this.height * 0.36, this.width * 0.2, this.height * 0.18, p.engine, 0.88).setDepth(172);
-      this.engineR = this.scene.add.ellipse(this.x + this.width * 0.2, this.y + this.height * 0.36, this.width * 0.2, this.height * 0.18, p.engine, 0.88).setDepth(172);
-      this.finL = this.scene.add.rectangle(this.x - this.width * 0.64, this.y, this.width * 0.14, this.height * 0.16, p.hullDark, 0.9).setDepth(169);
-      this.finR = this.scene.add.rectangle(this.x + this.width * 0.64, this.y, this.width * 0.14, this.height * 0.16, p.hullDark, 0.9).setDepth(169);
-      this.parts = [
-        this.engineGlow,
-        this.glow,
-        this.wingL,
-        this.wingR,
-        this.shellShadow,
-        this.shell,
-        this.ring,
-        this.cockpit,
-        this.eye,
-        this.engineL,
-        this.engineR,
-        this.finL,
-        this.finR,
-      ];
+      this.glow = this.scene.add.ellipse(this.x, this.y + this.height * 0.22, this.width * 1.15, this.height * 0.45, 0x6ec5ff, 0.22).setDepth(166);
+      this.droneSprite = this.scene.add
+        .image(this.x, this.y, 'alien-drone')
+        .setDisplaySize(this.width, this.height)
+        .setDepth(170);
+      this.parts = [this.glow, this.droneSprite];
       return;
     }
 
     if (this.type === 'proximitySpike') {
       this.hiddenTrapSprite = this.scene.add
         .image(this.x, this.y + 1, 'alien-hidden-trap')
-        .setDisplaySize(Math.max(this.width, this.height), Math.max(this.width, this.height))
+        .setDisplaySize(this.width, this.height)
         .setDepth(173)
-        .setAlpha(0.2);
+        .setAlpha(0);
       this.parts = [this.hiddenTrapSprite];
       return;
     }
@@ -157,10 +117,10 @@ export class Trap extends Phaser.GameObjects.Rectangle {
       if (!part) {
         return;
       }
-      const mul = part === this.glow || part === this.engineGlow ? 0.45 : 1;
+      const mul = part === this.glow ? 0.45 : 1;
       if (part === this.hiddenTrapSprite) {
-        if (this.type === 'proximitySpike' && !this.activated) {
-          part.setAlpha(0.2);
+        if (this.type === 'proximitySpike') {
+          part.setAlpha(Phaser.Math.Clamp(value, 0, 1));
         } else {
           part.setAlpha(Phaser.Math.Clamp(value, 0, 1));
         }
@@ -176,21 +136,9 @@ export class Trap extends Phaser.GameObjects.Rectangle {
     const flap = Math.sin(this.scene.time.now * 0.02 + this.startY * 0.03);
 
     if (this.type === 'movingHazard') {
-      this.engineGlow.setPosition(this.x, baseY + this.height * 0.38);
-      this.glow.setPosition(this.x, baseY + 1 + flutter * 0.5);
-      this.wingL.setPosition(this.x - this.width * 0.54, baseY + flutter * 0.8);
-      this.wingL.setAngle(-18 + flap * 8);
-      this.wingR.setPosition(this.x + this.width * 0.54, baseY - flutter * 0.8);
-      this.wingR.setAngle(18 - flap * 8);
-      this.shellShadow.setPosition(this.x, baseY + 1);
-      this.shell.setPosition(this.x, baseY - 1);
-      this.ring.setPosition(this.x, baseY + 0.5);
-      this.cockpit.setPosition(this.x, baseY - 1.2);
-      this.eye.setPosition(this.x, baseY - 1.2);
-      this.engineL.setPosition(this.x - this.width * 0.2, baseY + this.height * 0.34);
-      this.engineR.setPosition(this.x + this.width * 0.2, baseY + this.height * 0.34);
-      this.finL.setPosition(this.x - this.width * 0.64, baseY + flap * 0.5);
-      this.finR.setPosition(this.x + this.width * 0.64, baseY - flap * 0.5);
+      this.glow?.setPosition(this.x, baseY + this.height * 0.22 + flutter * 0.5);
+      this.droneSprite?.setPosition(this.x, baseY + flutter * 0.35);
+      this.droneSprite?.setAngle(flap * 6);
       return;
     }
 
@@ -236,6 +184,10 @@ export class Trap extends Phaser.GameObjects.Rectangle {
   }
 
   handleInteraction() {
+    if (this.type === 'proximitySpike') {
+      return;
+    }
+
     const now = this.scene.time.now;
     if (now < this.nextInteractAt) {
       return;
@@ -257,20 +209,7 @@ export class Trap extends Phaser.GameObjects.Rectangle {
       this.movementDirection *= -1;
       this.slowUntil = now + HAZARD_SLOW_MS;
       this.speedMultiplier = 0.42;
-      this.eye.setFillStyle(0xfff8d0, 1);
-      this.cockpit?.setFillStyle(0xc7f2ff, 0.95);
-      this.scene.time.delayedCall(HAZARD_SLOW_MS, () => {
-        if (!this.active) {
-          return;
-        }
-        this.eye.setFillStyle(dronePalette().eye, 0.95);
-        this.cockpit?.setFillStyle(dronePalette().cockpit, 0.9);
-      });
       return;
-    }
-
-    if (this.type === 'proximitySpike' && !this.activated) {
-      this.activate();
     }
 
     this.disableUntil = now + SPIKE_DISABLE_MS;
@@ -291,7 +230,7 @@ export class Trap extends Phaser.GameObjects.Rectangle {
   startIdleMotion() {
     if (this.type === 'movingHazard') {
       this.scene.tweens.add({
-        targets: [this.shell, this.ring, this.cockpit, this.eye, this.engineL, this.engineR],
+        targets: [this.droneSprite],
         y: '-=2',
         duration: 620,
         yoyo: true,
@@ -312,19 +251,6 @@ export class Trap extends Phaser.GameObjects.Rectangle {
   }
 
   activate() {
-    if (this.type === 'proximitySpike' && !this.activated) {
-      this.activated = true;
-      this.body.enable = true;
-      this.setVisualAlpha(1);
-      this.scene.tweens.add({
-        targets: [this.hiddenTrapSprite],
-        scaleX: 1.08,
-        scaleY: 1.08,
-        duration: 120,
-        yoyo: true,
-      });
-    }
-
     if (this.type === 'movingHazard' && !this.movementActivated) {
       this.movementActivated = true;
       this.setVisualAlpha(1);
@@ -332,13 +258,8 @@ export class Trap extends Phaser.GameObjects.Rectangle {
   }
 
   update(player) {
-    const distance = Phaser.Math.Distance.Between(player.x, player.y, this.x, this.y);
-
-    if (this.type === 'proximitySpike' && !this.activated && distance <= this.triggerDistance) {
-      this.activate();
-    }
-
     if (this.type === 'movingHazard') {
+      const distance = Phaser.Math.Distance.Between(player.x, player.y, this.x, this.y);
       if (!this.movementActivated && distance <= this.triggerDistance) {
         this.activate();
       }
@@ -388,10 +309,27 @@ export class Trap extends Phaser.GameObjects.Rectangle {
     }
 
     if (this.type === 'proximitySpike') {
-      return this.activated;
+      return true;
     }
 
     return true;
+  }
+
+  onPlayerHit() {
+    if (this.type !== 'proximitySpike') {
+      return;
+    }
+
+    this.setVisualAlpha(1);
+    this.scene.tweens.killTweensOf(this.hiddenTrapSprite);
+    this.scene.tweens.add({
+      targets: [this.hiddenTrapSprite],
+      scaleX: 1.08,
+      scaleY: 1.08,
+      duration: 80,
+      yoyo: true,
+      ease: 'Quad.Out',
+    });
   }
 
   reset() {
@@ -405,16 +343,14 @@ export class Trap extends Phaser.GameObjects.Rectangle {
     this.wobbleOffset = 0;
 
     if (this.type === 'movingHazard') {
-      this.eye.setFillStyle(dronePalette().eye, 0.95);
-      this.cockpit?.setFillStyle(dronePalette().cockpit, 0.9);
       this.movementActivated = !this.triggerDistance;
       this.setVisualAlpha(this.movementActivated ? 1 : 0.58);
     }
 
     if (this.type === 'proximitySpike') {
-      this.activated = false;
-      this.body.enable = false;
-      this.setVisualAlpha(0.14);
+      this.activated = true;
+      this.body.enable = true;
+      this.setVisualAlpha(0);
     }
 
     if (this.type === 'staticSpike') {

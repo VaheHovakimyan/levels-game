@@ -4,6 +4,7 @@ import { SCENE_KEYS } from './utils/constants';
 import { TOTAL_LEVELS } from './data/levels';
 import { TOTAL_STAGES, clampStageIndex, getRoadmapStageInfo, getStageIndex } from './data/roadmap';
 
+const ROTATE_PROMPT_ID = 'rotate-device-prompt';
 const game = createGame();
 
 function clampLevelIndex(levelIndex) {
@@ -65,6 +66,63 @@ function getGameState() {
     isLevelComplete: levelScene?.isLevelComplete ?? false,
   };
 }
+
+function isTouchMobileDevice() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
+  const ua = navigator.userAgent || '';
+  const isMobileLike = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+
+  return hasTouch && isMobileLike;
+}
+
+function isPortraitViewport() {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const viewport = window.visualViewport;
+  const width = viewport?.width ?? window.innerWidth;
+  const height = viewport?.height ?? window.innerHeight;
+
+  return height > width;
+}
+
+function installRotatePrompt() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  const promptElement = document.getElementById(ROTATE_PROMPT_ID);
+  if (!promptElement) {
+    return;
+  }
+
+  const shouldUsePrompt = isTouchMobileDevice();
+  if (!shouldUsePrompt) {
+    promptElement.hidden = true;
+    promptElement.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  const syncPromptVisibility = () => {
+    const showPrompt = isPortraitViewport();
+    promptElement.hidden = !showPrompt;
+    promptElement.setAttribute('aria-hidden', String(!showPrompt));
+  };
+
+  syncPromptVisibility();
+
+  window.addEventListener('resize', syncPromptVisibility);
+  window.addEventListener('orientationchange', syncPromptVisibility);
+  window.visualViewport?.addEventListener('resize', syncPromptVisibility);
+  window.visualViewport?.addEventListener('scroll', syncPromptVisibility);
+}
+
+installRotatePrompt();
 
 if (typeof window !== 'undefined') {
   // These methods are intentionally global so React Native WebView can call them directly.

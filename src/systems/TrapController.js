@@ -24,6 +24,7 @@ export class TrapController {
     this.colliders.push(
       this.scene.physics.add.overlap(this.player, this.levelLoader.trapGroup, (_player, trap) => {
         if (trap?.isLethal?.()) {
+          trap?.onPlayerHit?.();
           this.onTrapTriggered?.(trap);
           this.onFail('trap');
         }
