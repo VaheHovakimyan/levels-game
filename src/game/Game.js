@@ -69,6 +69,18 @@ export function createGame() {
         debug: false,
       },
     },
+    input: {
+      activePointers: 6,
+      touch: {
+        capture: true,
+      },
+      mouse: {
+        preventDefaultDown: true,
+        preventDefaultUp: true,
+        preventDefaultMove: true,
+        preventDefaultWheel: true,
+      },
+    },
     scene: [BootScene, PreloadScene, MenuScene, LevelScene, UIScene],
     callbacks: {
       postBoot: (game) => {

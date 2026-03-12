@@ -260,6 +260,7 @@ export function createButton(scene, config) {
   const iconColor = config.iconColor ?? 0xf2f6ff;
 
   const hitArea = scene.add.rectangle(0, 0, width, height, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+  const isTouchDevice = Boolean(scene.sys.game.device.input.touch) && !Boolean(scene.sys.game.device.os.desktop);
 
   let activeIcon = null;
   const setIcon = (iconKey) => {
@@ -294,20 +295,54 @@ export function createButton(scene, config) {
     renderButtonVisual(bg, width, height, colorBase, false);
   };
 
-  hitArea.on('pointerover', setHover);
-  hitArea.on('pointerout', clearHover);
+  let activePointerId = null;
 
-  hitArea.on('pointerdown', () => {
-    ensureTopLayer();
-    renderButtonVisual(bg, width, height, UI_THEME.colors.buttonPressed, true);
-  });
-
-  hitArea.on('pointerup', () => {
-    clearHover();
+  const triggerClick = () => {
     scene.soundManager?.playSfx?.('ui-blip');
     if (typeof config.onClick === 'function') {
       config.onClick();
     }
+  };
+
+  hitArea.on('pointerover', setHover);
+
+  hitArea.on('pointerdown', (pointer) => {
+    activePointerId = pointer.id;
+    ensureTopLayer();
+    renderButtonVisual(bg, width, height, UI_THEME.colors.buttonPressed, true);
+
+    // Mobile browsers and WebViews can drop pointerup events; trigger immediately on touch.
+    if (isTouchDevice) {
+      triggerClick();
+    }
+  });
+
+  hitArea.on('pointerup', (pointer) => {
+    if (!isTouchDevice && activePointerId === pointer.id) {
+      triggerClick();
+    }
+
+    activePointerId = null;
+    clearHover();
+  });
+
+  hitArea.on('pointerupoutside', () => {
+    activePointerId = null;
+    clearHover();
+  });
+
+  hitArea.on('pointerout', () => {
+    if (activePointerId === null) {
+      clearHover();
+      return;
+    }
+
+    renderButtonVisual(bg, width, height, UI_THEME.colors.buttonPressed, true);
+  });
+
+  hitArea.on('pointercancel', () => {
+    activePointerId = null;
+    clearHover();
   });
 
   setIcon(config.icon);

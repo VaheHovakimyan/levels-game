@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-const HIT_RADIUS_MULTIPLIER = 1.3;
+const HIT_RADIUS_MULTIPLIER = 1.45;
 const MIN_TOUCH_RADIUS_PX = 38;
 const MAX_TOUCH_RADIUS_PX = 58;
 const EDGE_MARGIN_LANDSCAPE_PX = 24;
@@ -48,6 +48,8 @@ export class VirtualControls {
         this.layoutControls();
       };
       this.onGameOut = () => this.resetAll();
+      this.onGlobalPointerUp = (pointer) => this.releasePointerFromControls(pointer);
+      this.onGlobalPointerCancel = (pointer) => this.releasePointerFromControls(pointer);
       this.onVisualViewportChange = () => {
         this.resetAll();
         this.layoutControls();
@@ -65,13 +67,15 @@ export class VirtualControls {
 
       this.scene.scale.on('resize', this.onResize);
       this.scene.input.on('gameout', this.onGameOut);
+      this.scene.input.on('pointerup', this.onGlobalPointerUp);
+      this.scene.input.on('pointerupoutside', this.onGlobalPointerUp);
+      this.scene.input.on('pointercancel', this.onGlobalPointerCancel);
       if (typeof window !== 'undefined') {
         window.addEventListener('resize', this.onWindowResize);
         window.addEventListener('orientationchange', this.onOrientationChange);
       }
       if (typeof window !== 'undefined' && window.visualViewport) {
         window.visualViewport.addEventListener('resize', this.onVisualViewportChange);
-        window.visualViewport.addEventListener('scroll', this.onVisualViewportChange);
       }
     }
   }
@@ -222,6 +226,7 @@ export class VirtualControls {
     hit.on('pointerup', releasePointer);
     hit.on('pointerout', releasePointer);
     hit.on('pointerupoutside', releasePointer);
+    hit.on('pointercancel', releasePointer);
 
     drawGlyph(0, 0, Math.max(12, radius * 0.65), 0.92);
 
@@ -249,6 +254,29 @@ export class VirtualControls {
         activePointers.clear();
         setDown(false);
       },
+      releasePointer: (pointerId) => {
+        if (!activePointers.has(pointerId)) {
+          return;
+        }
+
+        activePointers.delete(pointerId);
+        syncFromPointers();
+      },
+      prunePointers: (downPointerIds) => {
+        let changed = false;
+        activePointers.forEach((pointerId) => {
+          if (downPointerIds.has(pointerId)) {
+            return;
+          }
+
+          activePointers.delete(pointerId);
+          changed = true;
+        });
+
+        if (changed) {
+          syncFromPointers();
+        }
+      },
       destroy: () => {
         hit.destroy();
         bg.destroy();
@@ -263,10 +291,36 @@ export class VirtualControls {
     this.controls.forEach((control) => control.reset());
   }
 
+  releasePointerFromControls(pointer) {
+    if (!pointer || typeof pointer.id !== 'number') {
+      return;
+    }
+
+    this.controls.forEach((control) => control.releasePointer(pointer.id));
+  }
+
+  pruneReleasedPointers() {
+    const pointers = this.scene.input.manager?.pointers ?? [];
+    const downPointerIds = new Set();
+
+    pointers.forEach((pointer) => {
+      if (!pointer?.isDown) {
+        return;
+      }
+
+      downPointerIds.add(pointer.id);
+    });
+
+    this.controls.forEach((control) => control.prunePointers(downPointerIds));
+  }
+
   update() {
     if (!this.enabled) {
       return;
     }
+
+    // Safety net for mobile browsers that miss pointerup/pointercancel occasionally.
+    this.pruneReleasedPointers();
 
     this.justPressed.jump = this.state.jump && !this.previous.jump;
     this.justReleased.jump = !this.state.jump && this.previous.jump;
@@ -301,13 +355,15 @@ export class VirtualControls {
     if (this.enabled) {
       this.scene.scale.off('resize', this.onResize);
       this.scene.input.off('gameout', this.onGameOut);
+      this.scene.input.off('pointerup', this.onGlobalPointerUp);
+      this.scene.input.off('pointerupoutside', this.onGlobalPointerUp);
+      this.scene.input.off('pointercancel', this.onGlobalPointerCancel);
       if (typeof window !== 'undefined') {
         window.removeEventListener('resize', this.onWindowResize);
         window.removeEventListener('orientationchange', this.onOrientationChange);
       }
       if (typeof window !== 'undefined' && window.visualViewport) {
         window.visualViewport.removeEventListener('resize', this.onVisualViewportChange);
-        window.visualViewport.removeEventListener('scroll', this.onVisualViewportChange);
       }
     }
 
