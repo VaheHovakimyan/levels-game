@@ -7,6 +7,7 @@ const EDGE_MARGIN_LANDSCAPE_PX = 24;
 const EDGE_MARGIN_PORTRAIT_PX = 30;
 const BOTTOM_MARGIN_LANDSCAPE_PX = 28;
 const BOTTOM_MARGIN_PORTRAIT_PX = 36;
+const CONTROL_DEPTH_BASE = 1500;
 
 export class VirtualControls {
   constructor(scene) {
@@ -14,8 +15,12 @@ export class VirtualControls {
     const device = this.scene.sys.game.device;
     const hasTouch = Boolean(device.input.touch);
     const isDesktop = Boolean(device.os.desktop);
+    const hasCoarsePointer =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false;
     // Show on-screen controls only for mobile/tablet touch devices.
-    this.enabled = hasTouch && !isDesktop;
+    this.enabled = hasTouch && (!isDesktop || hasCoarsePointer);
 
     this.state = {
       left: false,
@@ -64,15 +69,27 @@ export class VirtualControls {
         // Some mobile browsers update the visible viewport after orientation tick.
         window.setTimeout(() => this.layoutControls(), 80);
       };
+      this.onWindowBlur = () => this.resetAll();
+      this.onVisibilityChange = () => {
+        if (typeof document !== 'undefined' && document.hidden) {
+          this.resetAll();
+        }
+      };
+      this.onGameBlur = () => this.resetAll();
 
       this.scene.scale.on('resize', this.onResize);
       this.scene.input.on('gameout', this.onGameOut);
       this.scene.input.on('pointerup', this.onGlobalPointerUp);
       this.scene.input.on('pointerupoutside', this.onGlobalPointerUp);
       this.scene.input.on('pointercancel', this.onGlobalPointerCancel);
+      this.scene.game.events.on(Phaser.Core.Events.BLUR, this.onGameBlur);
       if (typeof window !== 'undefined') {
         window.addEventListener('resize', this.onWindowResize);
         window.addEventListener('orientationchange', this.onOrientationChange);
+        window.addEventListener('blur', this.onWindowBlur);
+      }
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', this.onVisibilityChange);
       }
       if (typeof window !== 'undefined' && window.visualViewport) {
         window.visualViewport.addEventListener('resize', this.onVisualViewportChange);
@@ -144,6 +161,10 @@ export class VirtualControls {
     leftButton.setRadius(moveRadius);
     rightButton.setRadius(moveRadius);
     jumpButton.setRadius(jumpRadius);
+
+    leftButton.bringToTop();
+    rightButton.bringToTop();
+    jumpButton.bringToTop();
   }
 
   getBrowserInsetsPx() {
@@ -171,17 +192,24 @@ export class VirtualControls {
     const bg = this.scene.add
       .circle(0, 0, radius, 0x9fcbff, 0.12)
       .setScrollFactor(0)
-      .setDepth(260)
+      .setDepth(CONTROL_DEPTH_BASE)
       .setStrokeStyle(2.2, 0xc5e8ff, 0.62);
 
+    const initialHitRadius = radius * HIT_RADIUS_MULTIPLIER;
     const hit = this.scene.add
-      .circle(0, 0, radius * HIT_RADIUS_MULTIPLIER, 0xffffff, 0.001)
+      .circle(0, 0, initialHitRadius, 0xffffff, 0.001)
       .setScrollFactor(0)
-      .setDepth(259);
+      .setDepth(CONTROL_DEPTH_BASE + 1);
 
-    const inner = this.scene.add.circle(0, 0, Math.max(8, radius - 10), 0x5d9ee4, 0.18).setScrollFactor(0).setDepth(261);
-    const gloss = this.scene.add.circle(0, 0, Math.max(6, radius - 16), 0xffffff, 0.11).setScrollFactor(0).setDepth(262);
-    const glyph = this.scene.add.graphics().setScrollFactor(0).setDepth(263);
+    const inner = this.scene.add
+      .circle(0, 0, Math.max(8, radius - 10), 0x5d9ee4, 0.18)
+      .setScrollFactor(0)
+      .setDepth(CONTROL_DEPTH_BASE + 2);
+    const gloss = this.scene.add
+      .circle(0, 0, Math.max(6, radius - 16), 0xffffff, 0.11)
+      .setScrollFactor(0)
+      .setDepth(CONTROL_DEPTH_BASE + 3);
+    const glyph = this.scene.add.graphics().setScrollFactor(0).setDepth(CONTROL_DEPTH_BASE + 4);
 
     const drawGlyph = (x, y, size, alpha = 1) => {
       glyph.clear();
@@ -196,10 +224,29 @@ export class VirtualControls {
       }
     };
 
-    hit.setInteractive({ useHandCursor: false });
+    hit.setInteractive(
+      new Phaser.Geom.Circle(initialHitRadius, initialHitRadius, initialHitRadius),
+      Phaser.Geom.Circle.Contains,
+      false,
+    );
+    if (hit.input) {
+      hit.input.priorityID = 1000;
+    }
+
     const activePointers = new Set();
 
+    const syncHitArea = () => {
+      const hitRadius = hit.radius;
+      if (hit.input?.hitArea?.setTo) {
+        hit.input.hitArea.setTo(hitRadius, hitRadius, hitRadius);
+      }
+    };
+
     const setDown = (value) => {
+      if (this.state[key] === value) {
+        return;
+      }
+
       this.state[key] = value;
       bg.setFillStyle(0x9fcbff, value ? 0.22 : 0.12);
       inner.setFillStyle(0x5d9ee4, value ? 0.3 : 0.18);
@@ -212,19 +259,41 @@ export class VirtualControls {
       setDown(activePointers.size > 0);
     };
 
-    const pressPointer = (pointer) => {
-      activePointers.add(pointer.id);
+    const getPointerId = (pointer) => (typeof pointer?.id === 'number' ? pointer.id : null);
+
+    const pressPointer = (pointer, _localX, _localY, event) => {
+      const pointerId = getPointerId(pointer);
+      if (pointerId === null) {
+        return;
+      }
+
+      pointer?.event?.preventDefault?.();
+      event?.stopPropagation?.();
+      activePointers.add(pointerId);
       syncFromPointers();
     };
 
     const releasePointer = (pointer) => {
-      activePointers.delete(pointer.id);
+      const pointerId = getPointerId(pointer);
+      if (pointerId === null) {
+        return;
+      }
+
+      activePointers.delete(pointerId);
       syncFromPointers();
+    };
+
+    const releasePointerIfNotDown = (pointer) => {
+      if (pointer?.isDown) {
+        return;
+      }
+
+      releasePointer(pointer);
     };
 
     hit.on('pointerdown', pressPointer);
     hit.on('pointerup', releasePointer);
-    hit.on('pointerout', releasePointer);
+    hit.on('pointerout', releasePointerIfNotDown);
     hit.on('pointerupoutside', releasePointer);
     hit.on('pointercancel', releasePointer);
 
@@ -246,9 +315,17 @@ export class VirtualControls {
       setRadius: (newRadius) => {
         bg.setRadius(newRadius);
         hit.setRadius(newRadius * HIT_RADIUS_MULTIPLIER);
+        syncHitArea();
         inner.setRadius(Math.max(8, newRadius - 10));
         gloss.setRadius(Math.max(6, newRadius - 16));
         drawGlyph(bg.x, bg.y, Math.max(12, newRadius * 0.65), this.state[key] ? 1 : 0.92);
+      },
+      bringToTop: () => {
+        this.scene.children.bringToTop(bg);
+        this.scene.children.bringToTop(hit);
+        this.scene.children.bringToTop(inner);
+        this.scene.children.bringToTop(gloss);
+        this.scene.children.bringToTop(glyph);
       },
       reset: () => {
         activePointers.clear();
@@ -289,6 +366,9 @@ export class VirtualControls {
 
   resetAll() {
     this.controls.forEach((control) => control.reset());
+    this.justPressed.jump = false;
+    this.justReleased.jump = false;
+    this.previous.jump = false;
   }
 
   releasePointerFromControls(pointer) {
@@ -358,9 +438,14 @@ export class VirtualControls {
       this.scene.input.off('pointerup', this.onGlobalPointerUp);
       this.scene.input.off('pointerupoutside', this.onGlobalPointerUp);
       this.scene.input.off('pointercancel', this.onGlobalPointerCancel);
+      this.scene.game.events.off(Phaser.Core.Events.BLUR, this.onGameBlur);
       if (typeof window !== 'undefined') {
         window.removeEventListener('resize', this.onWindowResize);
         window.removeEventListener('orientationchange', this.onOrientationChange);
+        window.removeEventListener('blur', this.onWindowBlur);
+      }
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', this.onVisibilityChange);
       }
       if (typeof window !== 'undefined' && window.visualViewport) {
         window.visualViewport.removeEventListener('resize', this.onVisualViewportChange);
