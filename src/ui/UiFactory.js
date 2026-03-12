@@ -100,19 +100,41 @@ function drawButtonIcon(graphics, iconKey, color) {
       graphics.fillRect(3, -8, 4, 16);
       break;
     case 'restart':
-      graphics.lineStyle(1.5, color, 0.26);
-      graphics.strokeCircle(0, 0, 8.8);
+      graphics.lineStyle(1.4, color, 0.24);
+      graphics.strokeCircle(0, 0, 9.2);
+
+      const arcRadius = 7.2;
+      const arcStart = Phaser.Math.DegToRad(45);
+      const arcEnd = Phaser.Math.DegToRad(330);
 
       graphics.lineStyle(2.8, color, 0.98);
       graphics.beginPath();
-      graphics.arc(0, 0, 6.8, Math.PI * 0.94, Math.PI * 2.08, false);
+      graphics.arc(0, 0, arcRadius, arcStart, arcEnd, false);
       graphics.strokePath();
 
-      graphics.fillStyle(color, 0.98);
-      graphics.fillTriangle(8.2, -0.2, 12.1, -3.4, 11.3, 1.2);
+      // Keep the arrowhead anchored to the arc endpoint so it always stays aligned.
+      const endX = Math.cos(arcEnd) * arcRadius;
+      const endY = Math.sin(arcEnd) * arcRadius;
+      const tangentX = -Math.sin(arcEnd);
+      const tangentY = Math.cos(arcEnd);
+      const normalX = -tangentY;
+      const normalY = tangentX;
 
-      graphics.fillStyle(color, 0.28);
-      graphics.fillCircle(0, 0, 1.2);
+      const tipX = endX + tangentX * 1.2;
+      const tipY = endY + tangentY * 1.2;
+      const baseX = tipX - tangentX * 4.4;
+      const baseY = tipY - tangentY * 4.4;
+      const wing = 2.25;
+
+      graphics.fillStyle(color, 0.98);
+      graphics.fillTriangle(
+        tipX,
+        tipY,
+        baseX + normalX * wing,
+        baseY + normalY * wing,
+        baseX - normalX * wing,
+        baseY - normalY * wing,
+      );
       break;
     case 'roadmap':
       graphics.beginPath();
@@ -261,6 +283,7 @@ export function createButton(scene, config) {
 
   const hitArea = scene.add.rectangle(0, 0, width, height, 0x000000, 0.001).setInteractive({ useHandCursor: true });
   const isTouchDevice = Boolean(scene.sys.game.device.input.touch) && !Boolean(scene.sys.game.device.os.desktop);
+  const triggerOnTouchDown = config.triggerOnTouchDown !== false;
 
   let activeIcon = null;
   const setIcon = (iconKey) => {
@@ -312,13 +335,13 @@ export function createButton(scene, config) {
     renderButtonVisual(bg, width, height, UI_THEME.colors.buttonPressed, true);
 
     // Mobile browsers and WebViews can drop pointerup events; trigger immediately on touch.
-    if (isTouchDevice) {
+    if (isTouchDevice && triggerOnTouchDown) {
       triggerClick();
     }
   });
 
   hitArea.on('pointerup', (pointer) => {
-    if (!isTouchDevice && activePointerId === pointer.id) {
+    if (activePointerId === pointer.id && (!isTouchDevice || !triggerOnTouchDown)) {
       triggerClick();
     }
 

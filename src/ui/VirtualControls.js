@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 
 const HIT_RADIUS_MULTIPLIER = 1.45;
+const CONTROL_SIZE_SCALE = 0.5;
 const MIN_TOUCH_RADIUS_PX = 38;
 const MAX_TOUCH_RADIUS_PX = 58;
 const EDGE_MARGIN_LANDSCAPE_PX = 24;
 const EDGE_MARGIN_PORTRAIT_PX = 30;
-const BOTTOM_MARGIN_LANDSCAPE_PX = 28;
-const BOTTOM_MARGIN_PORTRAIT_PX = 36;
+const BOTTOM_MARGIN_LANDSCAPE_PX = 8;
+const BOTTOM_MARGIN_PORTRAIT_PX = 8;
 const CONTROL_DEPTH_BASE = 1500;
 
 export class VirtualControls {
@@ -134,7 +135,8 @@ export class VirtualControls {
     const scaleY = displayHeight / gameHeight || 1;
     const displayScale = Math.min(scaleX, scaleY) || 1;
     const viewportShortSidePx = Math.min(displayWidth, displayHeight);
-    const radiusPx = Phaser.Math.Clamp(viewportShortSidePx * 0.105, MIN_TOUCH_RADIUS_PX, MAX_TOUCH_RADIUS_PX);
+    const radiusPx =
+      Phaser.Math.Clamp(viewportShortSidePx * 0.105, MIN_TOUCH_RADIUS_PX, MAX_TOUCH_RADIUS_PX) * CONTROL_SIZE_SCALE;
     const browserInsetsPx = this.getBrowserInsetsPx();
 
     const moveRadius = radiusPx / displayScale;

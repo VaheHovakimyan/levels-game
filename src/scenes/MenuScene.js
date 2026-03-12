@@ -14,6 +14,7 @@ const ROADMAP_MOON_SIZE = 108;
 const ROADMAP_MOON_DISPLAY_SIZE = 86;
 const ROADMAP_MARS_SIZE = 130;
 const ROADMAP_VOID_SIZE = 126;
+const SKIN_SELECT_INPUT_GUARD_MS = 220;
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -39,6 +40,7 @@ export class MenuScene extends Phaser.Scene {
     this.settingsButton = null;
     this.settingsPopup = null;
     this.settingsMuteButton = null;
+    this.skinSelectInputUnlockAt = 0;
   }
 
   create() {
@@ -137,6 +139,7 @@ export class MenuScene extends Phaser.Scene {
       label: 'Open Suit Bay',
       icon: 'skin',
       depth: 102,
+      triggerOnTouchDown: false,
       onClick: () => this.toggleSkinSelect(),
     });
 
@@ -315,7 +318,6 @@ export class MenuScene extends Phaser.Scene {
     this.refreshSkinUi();
     this.refreshMeta();
     this.buildSkinSelect();
-    this.toggleSkinSelect(false);
     this.showToast(`Suit: ${getSkinLabel(safe)}`);
   }
 
@@ -439,7 +441,13 @@ export class MenuScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       card.setInteractive({ useHandCursor: true });
-      card.on('pointerup', () => this.selectSkin(skin.key));
+      card.on('pointerup', () => {
+        if (this.time.now < this.skinSelectInputUnlockAt) {
+          return;
+        }
+
+        this.selectSkin(skin.key);
+      });
       card.on('pointerover', () => card.setFillStyle(selected ? 0x4b77a9 : 0x2d4a67, 1));
       card.on('pointerout', () => card.setFillStyle(selected ? 0x385f8e : 0x203853, 1));
 
@@ -1227,6 +1235,7 @@ export class MenuScene extends Phaser.Scene {
     this.setMainMenuVisible(!visible);
 
     if (visible) {
+      this.skinSelectInputUnlockAt = this.time.now + SKIN_SELECT_INPUT_GUARD_MS;
       this.skinSelectContainer.setAlpha(0);
       this.skinSelectContainer.setY(12);
       this.tweens.add({

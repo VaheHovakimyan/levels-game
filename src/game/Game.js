@@ -36,6 +36,15 @@ function installTextSmoothing() {
   factoryProto.__smoothTextInstalled = true;
 }
 
+function getScaleMode() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return Phaser.Scale.FIT;
+  }
+
+  const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
+  return hasTouch ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
+}
+
 export function createGame() {
   installTextSmoothing();
 
@@ -57,7 +66,7 @@ export function createGame() {
       powerPreference: 'high-performance',
     },
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: getScaleMode(),
       autoCenter: Phaser.Scale.CENTER_BOTH,
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
