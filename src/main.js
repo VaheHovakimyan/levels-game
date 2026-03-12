@@ -91,6 +91,43 @@ function isPortraitViewport() {
   return height > width;
 }
 
+function installMobileViewportSync() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  if (!isTouchMobileDevice()) {
+    return;
+  }
+
+  const app = document.getElementById('app');
+  const phaserContainer = document.getElementById('phaser-container');
+  if (!app || !phaserContainer) {
+    return;
+  }
+
+  const syncViewportSize = () => {
+    const viewport = window.visualViewport;
+    const width = Math.round(viewport?.width ?? window.innerWidth);
+    const height = Math.round(viewport?.height ?? window.innerHeight);
+
+    app.style.width = `${width}px`;
+    app.style.height = `${height}px`;
+    phaserContainer.style.width = `${width}px`;
+    phaserContainer.style.height = `${height}px`;
+
+    if (game?.scale) {
+      game.scale.refresh();
+    }
+  };
+
+  syncViewportSize();
+  window.addEventListener('resize', syncViewportSize);
+  window.addEventListener('orientationchange', syncViewportSize);
+  window.visualViewport?.addEventListener('resize', syncViewportSize);
+  window.visualViewport?.addEventListener('scroll', syncViewportSize);
+}
+
 function installRotatePrompt() {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
@@ -123,6 +160,7 @@ function installRotatePrompt() {
 }
 
 installRotatePrompt();
+installMobileViewportSync();
 
 if (typeof window !== 'undefined') {
   // These methods are intentionally global so React Native WebView can call them directly.

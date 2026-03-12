@@ -42,7 +42,7 @@ function getScaleMode() {
   }
 
   const hasTouch = 'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
-  return hasTouch ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT;
+  return hasTouch ? Phaser.Scale.EXPAND : Phaser.Scale.FIT;
 }
 
 export function createGame() {
